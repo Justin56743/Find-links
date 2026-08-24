@@ -1,0 +1,25 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: find-links-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: CRON_INTERVAL
+        value: "*/10 * * * *"
+      - key: MOCK_SCRAPER_FALLBACK
+        value: "true"

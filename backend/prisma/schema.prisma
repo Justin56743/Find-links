@@ -1,0 +1,100 @@
+// Prisma schema for Find-Links Price Tracker & Alert Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String           @id @default(uuid())
+  name                String
+  email               String           @unique
+  password            String
+  defaultPincode      String           @default("560001")
+  telegramChatId      String?
+  telegramUsername    String?
+  telegramConnectedAt DateTime?
+  connectToken        String           @unique @default(uuid())
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  products            TrackedProduct[]
+  notifications       Notification[]
+}
+
+model TrackedProduct {
+  id                  String          @id @default(uuid())
+  userId              String
+  title               String
+  brand               String?
+  category            String?
+  imageUrl            String
+  targetPrice         Float?
+  pincode             String?
+  originalUrl         String
+  primaryStore        String
+  currentLowestPrice  Float
+  previousLowestPrice Float
+  lowestStore         String
+  allTimeLow          Float
+  allTimeHigh         Float
+  lastCheckedAt       DateTime?       @default(now())
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeListings       StoreListing[]
+  priceHistory        PriceHistory[]
+  notifications       Notification[]
+}
+
+model StoreListing {
+  id              String         @id @default(uuid())
+  productId       String
+  store           String         // "Amazon", "Flipkart", "Croma", "Reliance Digital", "Tata CLiQ", "JioMart", "Myntra"
+  url             String
+  currentPrice    Float
+  mrp             Float?
+  discountPercent Int?
+  inStock         Boolean        @default(true)
+  deliveryInfo    String?
+  lastCheckedAt   DateTime?      @default(now())
+  matchScore      Float          @default(1.0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  product         TrackedProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model PriceHistory {
+  id          String         @id @default(uuid())
+  productId   String
+  store       String
+  price       Float
+  recordedAt  DateTime       @default(now())
+
+  product     TrackedProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id              String          @id @default(uuid())
+  userId          String
+  productId       String?
+  title           String
+  message         String
+  type            String          // "PRICE_DROP", "TARGET_REACHED", "SYSTEM"
+  oldPrice        Float?
+  newPrice        Float?
+  store           String?
+  isRead          Boolean         @default(false)
+  sentToTelegram  Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         TrackedProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+}

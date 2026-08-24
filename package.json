@@ -1,0 +1,12 @@
+{
+  "name": "find-links",
+  "version": "1.0.0",
+  "description": "Find-Links: Multi-Store Indian E-Commerce Price Tracker & Telegram Alerts",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "node -e \"const { spawn } = require('child_process'); spawn('npm', ['run', 'dev'], { cwd: 'backend', stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev'], { cwd: 'frontend', stdio: 'inherit', shell: true });\"",
+    "start": "node -e \"const { spawn } = require('child_process'); spawn('npm', ['start'], { cwd: 'backend', stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev'], { cwd: 'frontend', stdio: 'inherit', shell: true });\"",
+    "build": "cd frontend && npm run build"
+  }
+}

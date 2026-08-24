@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: find_links_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=file:./dev.db
+      - JWT_SECRET=find_links_super_secret_jwt_key_prod_2026
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      - CRON_INTERVAL=*/10 * * * *
+      - MOCK_SCRAPER_FALLBACK=true
+    volumes:
+      - backend_data:/app/prisma
+
+volumes:
+  backend_data:
