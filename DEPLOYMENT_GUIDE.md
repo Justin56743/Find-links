@@ -1,111 +1,81 @@
-# 🚀 Find-Links Cloud Deployment Guide (Split Hosting)
+# 🚀 Find-Links Cloud Deployment & 24/7 Keep-Alive Guide
 
-This guide walks you through deploying your **Find-Links** full-stack application to the cloud for free:
-- **Frontend**: Hosted on **Vercel** (or Netlify) with global high-speed CDN.
-- **Backend**: Hosted on **Render** (or Railway) as a 24/7 background service for the 10-minute price scraper cron job and Telegram Bot.
-
----
-
-## 📋 Prerequisites
-1. A **GitHub account** (to store your code).
-2. A **Vercel account** ([vercel.com](https://vercel.com)) — Free.
-3. A **Render account** ([render.com](https://render.com)) — Free.
-4. Your Telegram Bot Token (`8493687278:AAGLFqtKAzsbAzTe5lcIaJS2E21s2xg25j0`).
+This guide details how to host **Find-Links** completely free in the cloud with:
+- **Database**: 100% free serverless **PostgreSQL** on **Neon.tech** (permanent, zero data loss on restarts).
+- **Backend & Telegram Bot**: Hosted on **Render** with 24/7 continuous uptime.
+- **Frontend**: Hosted on **Vercel** with high-speed global CDN.
 
 ---
 
-## Step 1: Push Your Code to GitHub
+## 🗄️ Step 1: Create Free PostgreSQL Database on Neon.tech (30 Seconds)
 
-If you haven't pushed this project to a GitHub repository yet, run the following in your terminal:
-
-```bash
-cd /home/justin/Projects/Find-links
-
-# Initialize Git repository (if not already done)
-git init
-git add .
-git commit -m "feat: Find-Links multi-store price tracker & telegram bot"
-
-# Create a new repository on GitHub (e.g. Find-links) and push:
-git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/Find-links.git
-git push -u origin main
-```
+1. Open [**Neon.tech**](https://neon.tech) and click **Sign Up** (with GitHub or Google).
+2. Click **Create Project**:
+   - **Project Name**: `find-links-db`
+   - **Region**: `AWS Singapore (ap-southeast-1)` *(Best for Indian users)*
+   - **Postgres Version**: `16` (Default)
+3. Click **Create Project**.
+4. In your project dashboard, look at the **Connection Details** box.
+5. Select **Prisma** or **Pooled connection** and copy the connection string:
+   ```text
+   postgresql://neondb_owner:npg_ABC123xyz@ep-cool-sample-123456.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+   ```
+   *(Keep this string handy for Step 2)*.
 
 ---
 
-## Step 2: Deploy the Backend to Render (Free 24/7 Service)
+## ⚙️ Step 2: Configure Render Backend Environment Variables
 
-1. Log in to [Render Dashboard](https://dashboard.render.com).
-2. Click **New +** → **Web Service**.
-3. Select **"Build and deploy from a Git repository"** and choose your **`Find-links`** repository.
-4. Fill in the service configuration:
-   - **Name**: `find-links-backend` (or any name you prefer)
-   - **Region**: `Singapore (Southeast Asia)` or `Frankfurt` (closest to India)
-   - **Root Directory**: `backend`
-   - **Runtime**: `Node`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Instance Type**: `Free`
-5. Scroll down to **Environment Variables** and add the following:
+1. Go to your [**Render Dashboard**](https://dashboard.render.com) and click on your `find-links-backend` service.
+2. Go to **Environment** (or **Environment Variables** in Settings).
+3. Set the following environment variables:
 
 | Key | Value | Notes |
 |---|---|---|
-| `NODE_ENV` | `production` | Enables production optimizations |
-| `DATABASE_URL` | `file:./dev.db` | Local SQLite database |
-| `JWT_SECRET` | `super_secure_jwt_secret_key_prod_2026_xyz` | Any random 32-character string |
-| `TELEGRAM_BOT_TOKEN` | `8493687278:AAGLFqtKAzsbAzTe5lcIaJS2E21s2xg25j0` | Your Bot Token |
-| `TELEGRAM_BOT_USERNAME` | `pricedroplivebot` | Your Bot Username (without `@`) |
+| `DATABASE_URL` | `postgresql://neondb_owner:...@ep-...neon.tech/neondb?sslmode=require` | Your Neon connection string from Step 1 |
+| `JWT_SECRET` | `find_links_super_secure_prod_key_2026_xyz` | Any random 32-character secret |
+| `TELEGRAM_BOT_TOKEN` | `8493687278:AAGLFqtKAzsbAzTe5lcIaJS2E21s2xg25j0` | Your Telegram Bot token from @BotFather |
+| `TELEGRAM_BOT_USERNAME` | `pricedroplivebot` | Your Telegram Bot username (without `@`) |
 | `CRON_INTERVAL` | `*/10 * * * *` | Checks prices every 10 minutes |
-| `MOCK_SCRAPER_FALLBACK`| `true` | Resilience layer for retail anti-bot blocks |
+| `MOCK_SCRAPER_FALLBACK`| `true` | Scraper resilience safety |
+| `NODE_ENV` | `production` | Production mode |
 
-6. Click **Create Web Service**.
-7. Render will build and launch your backend service. Once deployed, note down your backend URL (e.g. `https://find-links-backend.onrender.com`).
-8. You can verify it by opening `https://find-links-backend.onrender.com/api/health` in your browser.
-
----
-
-## Step 3: Deploy the Frontend to Vercel (Free Global CDN)
-
-1. Log in to [Vercel Dashboard](https://vercel.com).
-2. Click **Add New…** → **Project**.
-3. Select your **`Find-links`** GitHub repository.
-4. In the project configuration:
-   - **Framework Preset**: `Vite`
-   - **Root Directory**: Click **Edit** and choose **`frontend`**
-   - **Build Command**: `npm run build` (Default)
-   - **Output Directory**: `dist` (Default)
-5. Expand **Environment Variables** and add:
-
-| Key | Value |
-|---|---|
-| `VITE_API_URL` | `https://find-links-backend.onrender.com` |
-
-*(Replace with your actual Render backend URL from Step 2)*
-
-6. Click **Deploy**.
-7. Vercel will build and deploy your React frontend within 30 seconds.
-8. You will receive your public live URL (e.g. `https://find-links.vercel.app`)!
+4. Click **Save Changes**. Render will automatically redeploy and sync your database tables using Prisma!
 
 ---
 
-## 🔄 Alternative: Deploying on Railway (All-in-One)
+## 💓 Step 3: Keep Render Online 24/7 For Free (Prevent Sleep)
 
-If you prefer Railway instead of Render:
-1. Go to [Railway.app](https://railway.app).
-2. Click **New Project** → **Deploy from GitHub repo**.
-3. Set root directory to `backend`.
-4. Add the environment variables from Step 2.
-5. Railway will deploy and provide your backend URL.
+Render's free tier automatically goes to sleep after 15 minutes of inactivity. To keep your price scraper checking every 10 minutes and Telegram bot awake 24/7:
+
+1. Open [**UptimeRobot.com**](https://uptimerobot.com) and sign up for a free account.
+2. Click **+ Add New Monitor**.
+3. Configure the monitor:
+   - **Monitor Type**: `HTTP(s)`
+   - **Friendly Name**: `Find-Links Price Bot Keep-Alive`
+   - **URL (or IP)**: `https://<YOUR-RENDER-BACKEND-URL>/api/health`
+   - **Monitoring Interval**: `Every 5 minutes`
+4. Click **Create Monitor**.
+
+🎉 **That's it!** UptimeRobot will ping your backend every 5 minutes. Render will **never go to sleep**, keeping your 10-minute price scraper running 24/7/365!
 
 ---
 
-## ✅ Post-Deployment Verification Checklist
+## 🌐 Step 4: Deploy / Redeploy Frontend on Vercel
 
-1. **Open Frontend on your Phone or PC**: Visit your Vercel URL `https://your-app.vercel.app`.
-2. **Set Delivery PIN**: Click the PIN pill in the navbar and set your location (e.g. `560001` Bangalore).
-3. **Connect Telegram**:
-   - In Telegram, open [**@pricedroplivebot**](https://t.me/pricedroplivebot) and press **START**.
-   - Your Telegram is now connected!
-4. **Track a Product**: Click **"Track New Product"** and paste an Amazon or Flipkart link.
-5. **Test Alerts**: Open the product card and click **"Test Drop Alert (10%)"** to confirm instant Telegram message delivery on your phone!
+1. Go to your [**Vercel Dashboard**](https://vercel.com).
+2. Ensure your Project **Settings** → **Environment Variables** has:
+   - `VITE_API_URL`: `https://<YOUR-RENDER-BACKEND-URL>`
+3. In the **Deployments** tab, click **Redeploy**.
+
+---
+
+## ✅ Verification Checklist
+
+1. **Persistent Database Test**:
+   - Add a product in the web app.
+   - Go to Render and trigger a **Manual Deploy** / Restart.
+   - Refresh your dashboard: all your tracked products, price history charts, and settings are **100% preserved** in Neon PostgreSQL!
+2. **24/7 Telegram Test**:
+   - Open [@pricedroplivebot](https://t.me/pricedroplivebot) on Telegram and press `/start`.
+   - Your bot will remain online 24/7 and push alerts whenever prices drop!

@@ -9,6 +9,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import telegramRoutes from './routes/telegramRoutes.js';
 import { initScheduler } from './services/schedulerService.js';
 import { telegramService } from './services/telegramService.js';
+import { initKeepAlive } from './services/keepAliveService.js';
 
 const app = express();
 
@@ -189,6 +190,7 @@ const startServer = async () => {
   await seedInitialDataIfEmpty();
   initScheduler();
   telegramService.startPolling();
+  initKeepAlive();
 
   app.listen(config.port, () => {
     console.log(`\n======================================================`);
