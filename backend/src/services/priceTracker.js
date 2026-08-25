@@ -22,42 +22,51 @@ export const checkProductPrice = async (productId) => {
   for (const listing of product.storeListings) {
     let freshPrice = listing.currentPrice;
 
-    // Attempt live scrape if URL is direct product page
-    try {
-      if (listing.store === 'Amazon' && listing.url.includes('/dp/')) {
-        const scraped = await scrapeAmazon(listing.url);
-        if (scraped?.price) freshPrice = scraped.price;
-      } else if (listing.store === 'Flipkart' && listing.url.includes('/p/')) {
-        const scraped = await scrapeFlipkart(listing.url);
-        if (scraped?.price) freshPrice = scraped.price;
+    // Only scrape if the store is marked inStock / has a valid product URL
+    if (listing.inStock && listing.url && listing.url.startsWith('http')) {
+      try {
+        if (listing.store === 'Amazon' && listing.url.includes('/dp/')) {
+          const scraped = await scrapeAmazon(listing.url);
+          if (scraped?.price) freshPrice = scraped.price;
+        } else if (listing.store === 'Flipkart' && listing.url.includes('/p/')) {
+          const scraped = await scrapeFlipkart(listing.url);
+          if (scraped?.price) freshPrice = scraped.price;
+        }
+      } catch (e) {
+        // Keep existing price on error
       }
-    } catch (e) {
-      // Keep existing price on error
     }
 
     // Update listing
-    await prisma.storeListing.update({
-      where: { id: listing.id },
-      data: {
-        currentPrice: freshPrice,
-        lastCheckedAt: new Date()
-      }
-    });
+    if (listing.inStock && freshPrice) {
+      await prisma.storeListing.update({
+        where: { id: listing.id },
+        data: {
+          currentPrice: freshPrice,
+          lastCheckedAt: new Date()
+        }
+      });
 
-    // Record price point in history
-    await prisma.priceHistory.create({
-      data: {
-        productId: product.id,
-        store: listing.store,
-        price: freshPrice,
-        recordedAt: new Date()
-      }
-    });
+      // Record price point in history
+      await prisma.priceHistory.create({
+        data: {
+          productId: product.id,
+          store: listing.store,
+          price: freshPrice,
+          recordedAt: new Date()
+        }
+      });
 
-    if (freshPrice < newLowestPrice) {
-      newLowestPrice = freshPrice;
-      lowestListing = listing;
+      if (freshPrice < newLowestPrice) {
+        newLowestPrice = freshPrice;
+        lowestListing = listing;
+      }
     }
+  }
+
+  // If no valid in-stock price was found, maintain previous price
+  if (newLowestPrice === Infinity) {
+    newLowestPrice = previousLowest;
   }
 
   const allTimeLow = Math.min(product.allTimeLow, newLowestPrice);
@@ -75,27 +84,21 @@ export const checkProductPrice = async (productId) => {
     }
   });
 
-  // Price Drop Check
+  // Price Drop Trigger
   const priceDropped = newLowestPrice < previousLowest;
-  const hitTarget = product.targetPrice && newLowestPrice <= product.targetPrice && previousLowest > product.targetPrice;
 
-  if ((priceDropped || hitTarget) && lowestListing) {
-    const title = hitTarget
-      ? `🎯 Target Price Hit: ${product.title}`
-      : `📉 Price Drop: ${product.title}`;
-
-    const message = hitTarget
-      ? `Price dropped to ₹${newLowestPrice.toLocaleString('en-IN')} on ${lowestListing.store} (Target: ₹${product.targetPrice.toLocaleString('en-IN')})!`
-      : `Price dropped from ₹${previousLowest.toLocaleString('en-IN')} to ₹${newLowestPrice.toLocaleString('en-IN')} on ${lowestListing.store} (Save ₹${(previousLowest - newLowestPrice).toLocaleString('en-IN')})!`;
+  if (priceDropped && lowestListing) {
+    const title = `📉 Price Drop: ${product.title}`;
+    const message = `Price dropped from ₹${previousLowest.toLocaleString('en-IN')} to ₹${newLowestPrice.toLocaleString('en-IN')} on ${lowestListing.store} (Save ₹${(previousLowest - newLowestPrice).toLocaleString('en-IN')})!`;
 
     // Create In-App Notification
-    const notification = await prisma.notification.create({
+    await prisma.notification.create({
       data: {
         userId: product.userId,
         productId: product.id,
         title,
         message,
-        type: hitTarget ? 'TARGET_REACHED' : 'PRICE_DROP',
+        type: 'PRICE_DROP',
         oldPrice: previousLowest,
         newPrice: newLowestPrice,
         store: lowestListing.store,
@@ -147,8 +150,9 @@ export const simulatePriceDrop = async (productId, dropPercent = 8) => {
 
   if (!product || product.storeListings.length === 0) return null;
 
-  // Pick the first or lowest store listing to discount
-  const targetListing = product.storeListings[0];
+  // Pick an in-stock store listing to discount
+  const inStockListings = product.storeListings.filter(l => l.inStock && l.currentPrice > 0);
+  const targetListing = inStockListings.length > 0 ? inStockListings[0] : product.storeListings[0];
   const oldPrice = product.currentLowestPrice;
   const newPrice = Math.round((oldPrice * (1 - dropPercent / 100)) / 10) * 10;
 

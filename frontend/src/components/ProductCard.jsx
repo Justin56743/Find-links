@@ -4,7 +4,6 @@ import {
   ExternalLink, 
   RefreshCw, 
   MapPin, 
-  Target, 
   CheckCircle2,
   ChevronRight,
   Sparkles
@@ -32,6 +31,9 @@ export const ProductCard = ({ product, onSelectProduct, onProductUpdated }) => {
   const isPriceDropped = product.currentLowestPrice < product.previousLowestPrice;
   const savingsAmount = product.previousLowestPrice - product.currentLowestPrice;
   const discountPercent = Math.round((savingsAmount / product.previousLowestPrice) * 100);
+
+  // Only take in-stock listings with prices
+  const availableListings = product.storeListings?.filter(l => l.inStock && l.currentPrice > 0) || [];
 
   return (
     <div 
@@ -84,12 +86,9 @@ export const ProductCard = ({ product, onSelectProduct, onProductUpdated }) => {
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {product.brand || product.category || 'Deal'}
           </span>
-          {product.targetPrice && (
-            <span style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Target size={12} />
-              Target: ₹{product.targetPrice.toLocaleString('en-IN')}
-            </span>
-          )}
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            {availableListings.length} Stores Available
+          </span>
         </div>
 
         <h3 className="product-title" title={product.title}>
@@ -119,10 +118,10 @@ export const ProductCard = ({ product, onSelectProduct, onProductUpdated }) => {
         {/* Store Comparison Pills */}
         <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-            Live Store Prices:
+            Live Available Stores:
           </div>
           <div className="store-matrix">
-            {product.storeListings?.slice(0, 4).map((listing, i) => {
+            {availableListings.slice(0, 4).map((listing, i) => {
               const isLowest = listing.currentPrice === product.currentLowestPrice;
               const storeKey = listing.store.toLowerCase().replace(/\s+/g, '');
               return (
@@ -144,9 +143,9 @@ export const ProductCard = ({ product, onSelectProduct, onProductUpdated }) => {
                 </div>
               );
             })}
-            {product.storeListings?.length > 4 && (
+            {availableListings.length > 4 && (
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', alignSelf: 'center', padding: '0 4px' }}>
-                +{product.storeListings.length - 4} more
+                +{availableListings.length - 4} more
               </span>
             )}
           </div>

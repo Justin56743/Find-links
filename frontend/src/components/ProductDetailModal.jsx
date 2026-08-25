@@ -6,19 +6,19 @@ import {
   Trash2, 
   TrendingDown, 
   MapPin, 
-  Target, 
   Sparkles, 
   Check, 
   Play, 
   Edit3,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { api } from '../api/client';
 import { PriceHistoryChart } from './PriceHistoryChart';
 
 export const ProductDetailModal = ({ product: initialProduct, onClose, onProductDeleted, onProductUpdated }) => {
   const [product, setProduct] = useState(initialProduct);
-  const [targetPriceInput, setTargetPriceInput] = useState(product?.targetPrice || '');
   const [pincodeInput, setPincodeInput] = useState(product?.pincode || '560001');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,7 +34,6 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
         .then(res => {
           if (res.success) {
             setProduct(res.product);
-            setTargetPriceInput(res.product.targetPrice || '');
             setPincodeInput(res.product.pincode || '560001');
           }
         })
@@ -49,17 +48,15 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
     try {
       setIsSavingSettings(true);
       const res = await api.products.update(product.id, {
-        targetPrice: targetPriceInput ? parseFloat(targetPriceInput) : null,
         pincode: pincodeInput.trim()
       });
       if (res.success) {
         setProduct(prev => ({
           ...prev,
-          targetPrice: res.product.targetPrice,
           pincode: res.product.pincode
         }));
         if (onProductUpdated) onProductUpdated(res.product);
-        setSaveSuccessMsg('Settings updated successfully!');
+        setSaveSuccessMsg('Delivery PIN location updated successfully!');
         setTimeout(() => setSaveSuccessMsg(''), 3000);
       }
     } catch (err) {
@@ -152,13 +149,13 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
         </div>
 
         {/* Product Hero Info */}
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '28px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <div style={{
-            width: '140px',
-            height: '140px',
+            width: '130px',
+            height: '130px',
             background: '#ffffff',
             borderRadius: 'var(--radius-md)',
-            padding: '12px',
+            padding: '10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -173,7 +170,7 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
 
           <div style={{ flex: 1, minWidth: '260px' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: '4px' }}>
-              {product.brand} • {product.category}
+              {product.brand || product.category}
             </div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.4, marginBottom: '12px' }}>
               {product.title}
@@ -195,45 +192,31 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
           </div>
         </div>
 
-        {/* Settings Bar: Target Price & Delivery PIN Code */}
+        {/* Delivery PIN Code Toolbar */}
         <form 
           onSubmit={handleSaveSettings}
           style={{
             background: 'rgba(255, 255, 255, 0.03)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
-            padding: '16px 20px',
+            padding: '12px 18px',
             marginBottom: '28px',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '16px',
             flexWrap: 'wrap'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '180px' }}>
-            <Target size={16} color="#fbbf24" />
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Target Alert Price (₹)</label>
-              <input 
-                type="number"
-                className="input-field"
-                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
-                placeholder="e.g. 65000"
-                value={targetPriceInput}
-                onChange={(e) => setTargetPriceInput(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '160px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1', minWidth: '240px' }}>
             <MapPin size={16} color="#38bdf8" />
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Delivery PIN Code</label>
+              <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>Delivery Location PIN Code</label>
               <input 
                 type="text"
                 maxLength={6}
                 className="input-field"
-                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+                style={{ padding: '6px 10px', fontSize: '0.85rem', marginBottom: 0 }}
                 placeholder="560001"
                 value={pincodeInput}
                 onChange={(e) => setPincodeInput(e.target.value)}
@@ -241,14 +224,14 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button 
               type="submit" 
               className="btn btn-primary btn-sm"
               disabled={isSavingSettings}
             >
               <Check size={14} />
-              <span>{isSavingSettings ? 'Saving...' : 'Update Settings'}</span>
+              <span>{isSavingSettings ? 'Saving...' : 'Update PIN Location'}</span>
             </button>
           </div>
 
@@ -270,7 +253,8 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {product.storeListings?.map((listing) => {
-              const isLowest = listing.currentPrice === product.currentLowestPrice;
+              const isAvailable = listing.inStock && listing.currentPrice > 0;
+              const isLowest = isAvailable && listing.currentPrice === product.currentLowestPrice;
               const storeKey = listing.store.toLowerCase().replace(/\s+/g, '');
               const isEditing = editingStoreId === listing.id;
 
@@ -278,7 +262,11 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                 <div 
                   key={listing.id}
                   style={{
-                    background: isLowest ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                    background: isLowest 
+                      ? 'rgba(16, 185, 129, 0.08)' 
+                      : isAvailable 
+                        ? 'rgba(255, 255, 255, 0.03)' 
+                        : 'rgba(255, 255, 255, 0.01)',
                     border: `1px solid ${isLowest ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-subtle)'}`,
                     borderRadius: 'var(--radius-md)',
                     padding: '14px 18px',
@@ -286,7 +274,8 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '16px',
-                    flexWrap: 'wrap'
+                    flexWrap: 'wrap',
+                    opacity: isAvailable ? 1 : 0.65
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '180px' }}>
@@ -298,52 +287,75 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                         Lowest Price
                       </span>
                     )}
+                    {!isAvailable && (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <XCircle size={12} /> Not Available
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isLowest ? '#34d399' : 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
-                        ₹{listing.currentPrice.toLocaleString('en-IN')}
-                      </div>
-                      {listing.mrp && listing.mrp > listing.currentPrice && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          MRP: <s style={{ marginRight: '4px' }}>₹{listing.mrp.toLocaleString('en-IN')}</s>
-                          <span style={{ color: '#fbbf24' }}>({listing.discountPercent}% OFF)</span>
+                    {isAvailable ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isLowest ? '#34d399' : 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+                          ₹{listing.currentPrice.toLocaleString('en-IN')}
                         </div>
-                      )}
-                    </div>
+                        {listing.mrp && listing.mrp > listing.currentPrice && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            MRP: <s style={{ marginRight: '4px' }}>₹{listing.mrp.toLocaleString('en-IN')}</s>
+                            <span style={{ color: '#fbbf24' }}>({listing.discountPercent}% OFF)</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>
+                        Not Sold on {listing.store}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '140px' }}>
-                      {listing.deliveryInfo || 'Available for delivery'}
+                      {listing.deliveryInfo || (isAvailable ? 'Available for delivery' : 'Not available')}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <a 
-                        href={listing.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className={`btn btn-sm ${isLowest ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '6px 12px' }}
-                      >
-                        <span>Buy on {listing.store}</span>
-                        <ExternalLink size={13} />
-                      </a>
+                      {isAvailable && listing.url ? (
+                        <a 
+                          href={listing.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className={`btn btn-sm ${isLowest ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ padding: '6px 12px' }}
+                        >
+                          <span>Buy on {listing.store}</span>
+                          <ExternalLink size={13} />
+                        </a>
+                      ) : (
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '6px 12px', opacity: 0.5, cursor: 'not-allowed' }}
+                          disabled
+                        >
+                          Unavailable
+                        </button>
+                      )}
 
-                      <button
-                        className="btn btn-secondary btn-icon"
-                        style={{ width: '32px', height: '32px' }}
-                        title="Edit direct store link"
-                        onClick={() => {
-                          if (isEditing) {
-                            setEditingStoreId(null);
-                          } else {
-                            setEditingStoreId(listing.id);
-                            setCustomStoreUrl(listing.url);
-                          }
-                        }}
-                      >
-                        <Edit3 size={13} />
-                      </button>
+                      {isAvailable && (
+                        <button
+                          className="btn btn-secondary btn-icon"
+                          style={{ width: '32px', height: '32px' }}
+                          title="Edit direct store link"
+                          onClick={() => {
+                            if (isEditing) {
+                              setEditingStoreId(null);
+                            } else {
+                              setEditingStoreId(listing.id);
+                              setCustomStoreUrl(listing.url);
+                            }
+                          }}
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
 

@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../prisma.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { scrapeProductUrl } from '../services/scraper/index.js';
+import { detectProductCategory } from '../services/scraper/crossStoreMatcher.js';
 import { checkProductPrice, simulatePriceDrop } from '../services/priceTracker.js';
 
 const router = express.Router();
@@ -30,7 +31,6 @@ router.post('/', authenticate, async (req, res) => {
       imageUrl,
       originalUrl,
       primaryStore,
-      targetPrice,
       pincode,
       brand,
       category,
@@ -41,23 +41,26 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Title and URL are required.' });
     }
 
-    // Determine initial lowest price among store listings
+    const detectedCategory = category || detectProductCategory(title, originalUrl);
+
+    // Filter and sanitize store listings
     const listings = Array.isArray(storeListings) && storeListings.length > 0
       ? storeListings
       : [{ store: primaryStore || 'Amazon', url: originalUrl, currentPrice: 1999, inStock: true }];
 
-    const validPrices = listings.map(l => l.currentPrice).filter(p => typeof p === 'number' && p > 0);
+    // Find available in-stock listings with valid prices
+    const availableListings = listings.filter(l => l.inStock !== false && typeof l.currentPrice === 'number' && l.currentPrice > 0);
+    const validPrices = availableListings.map(l => l.currentPrice);
     const initialLowest = validPrices.length > 0 ? Math.min(...validPrices) : 1999;
-    const lowestListing = listings.find(l => l.currentPrice === initialLowest) || listings[0];
+    const lowestListing = availableListings.find(l => l.currentPrice === initialLowest) || listings[0];
 
     const product = await prisma.trackedProduct.create({
       data: {
         userId: req.user.id,
         title: title.trim(),
         brand: brand || null,
-        category: category || 'Electronics',
+        category: detectedCategory,
         imageUrl: imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
-        targetPrice: targetPrice ? parseFloat(targetPrice) : null,
         pincode: pincode || req.user.defaultPincode || '560001',
         originalUrl: originalUrl.trim(),
         primaryStore: primaryStore || lowestListing.store || 'Amazon',
@@ -65,16 +68,16 @@ router.post('/', authenticate, async (req, res) => {
         previousLowestPrice: initialLowest,
         lowestStore: lowestListing.store,
         allTimeLow: initialLowest,
-        allTimeHigh: Math.max(...validPrices, initialLowest),
+        allTimeHigh: Math.max(...validPrices, initialLowest * 1.15),
         storeListings: {
           create: listings.map(item => ({
             store: item.store,
-            url: item.url || originalUrl,
-            currentPrice: item.currentPrice || initialLowest,
+            url: item.url || (item.inStock !== false ? originalUrl : ''),
+            currentPrice: item.inStock !== false && item.currentPrice ? item.currentPrice : (initialLowest || 0),
             mrp: item.mrp || Math.round((item.currentPrice || initialLowest) * 1.18),
             discountPercent: item.discountPercent || 15,
-            inStock: item.inStock !== false,
-            deliveryInfo: item.deliveryInfo || `${item.store} Delivery Available`,
+            inStock: item.inStock !== false && item.currentPrice !== null,
+            deliveryInfo: item.deliveryInfo || (item.inStock !== false ? `${item.store} Delivery Available` : `Not available on ${item.store}`),
             matchScore: item.matchScore || 1.0
           }))
         }
@@ -84,16 +87,34 @@ router.post('/', authenticate, async (req, res) => {
       }
     });
 
-    // Create initial baseline price history point for each store
+    // Seed realistic historical price checkpoints (60d, 45d, 30d, 15d, 7d, 3d, today) for in-stock stores
     for (const listing of product.storeListings) {
-      await prisma.priceHistory.create({
-        data: {
-          productId: product.id,
-          store: listing.store,
-          price: listing.currentPrice,
-          recordedAt: new Date()
+      if (listing.inStock && listing.currentPrice > 0) {
+        const basePrice = listing.currentPrice;
+        const mrp = listing.mrp || Math.round(basePrice * 1.18);
+
+        const checkpoints = [
+          { daysAgo: 60, price: Math.round(mrp * 0.98 / 10) * 10 },
+          { daysAgo: 45, price: Math.round(mrp * 0.95 / 10) * 10 },
+          { daysAgo: 30, price: Math.round(basePrice * 1.06 / 10) * 10 },
+          { daysAgo: 15, price: Math.round(basePrice * 1.03 / 10) * 10 },
+          { daysAgo: 7,  price: Math.round(basePrice * 1.01 / 10) * 10 },
+          { daysAgo: 0,  price: basePrice }
+        ];
+
+        for (const cp of checkpoints) {
+          const d = new Date();
+          d.setDate(d.getDate() - cp.daysAgo);
+          await prisma.priceHistory.create({
+            data: {
+              productId: product.id,
+              store: listing.store,
+              price: cp.price,
+              recordedAt: d
+            }
+          });
         }
-      });
+      }
     }
 
     return res.status(201).json({
@@ -151,10 +172,10 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// Update product target price, pincode, or store URLs
+// Update product pincode or store URLs
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const { targetPrice, pincode, storeListings } = req.body;
+    const { pincode, storeListings } = req.body;
 
     const existing = await prisma.trackedProduct.findFirst({
       where: { id: req.params.id, userId: req.user.id }
@@ -167,7 +188,6 @@ router.put('/:id', authenticate, async (req, res) => {
     const updated = await prisma.trackedProduct.update({
       where: { id: req.params.id },
       data: {
-        targetPrice: targetPrice !== undefined ? (targetPrice ? parseFloat(targetPrice) : null) : existing.targetPrice,
         pincode: pincode !== undefined ? pincode : existing.pincode
       },
       include: {

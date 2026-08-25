@@ -39,7 +39,6 @@ async function runE2ETests() {
       title: 'Samsung Galaxy S24 Ultra (512 GB)',
       originalUrl: 'https://www.amazon.in/dp/B0CS5X8281',
       primaryStore: 'Amazon',
-      targetPrice: 120000,
       pincode: '110001',
       storeListings: previewRes.data.preview.crossListings
     }, authHeaders);

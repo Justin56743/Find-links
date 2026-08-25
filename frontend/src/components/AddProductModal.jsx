@@ -5,10 +5,11 @@ import {
   Sparkles, 
   Check, 
   MapPin, 
-  Target, 
   ExternalLink, 
   AlertCircle,
-  ShoppingBag
+  ShoppingBag,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +20,6 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [title, setTitle] = useState('');
-  const [targetPrice, setTargetPrice] = useState('');
   const [pincode, setPincode] = useState(user?.defaultPincode || '560001');
   const [storeListings, setStoreListings] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -43,10 +43,6 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
         setPreviewData(res.preview);
         setTitle(res.preview.title);
         setStoreListings(res.preview.crossListings || []);
-        if (res.preview.price) {
-          // Suggest 10% below current price as default target
-          setTargetPrice(Math.round(res.preview.price * 0.9));
-        }
       }
     } catch (err) {
       setErrorMsg(err.message || 'Failed to extract product details. Please verify the URL.');
@@ -71,7 +67,6 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
         originalUrl: url.trim(),
         imageUrl: previewData?.imageUrl,
         primaryStore: previewData?.store || 'Amazon',
-        targetPrice: targetPrice ? parseFloat(targetPrice) : null,
         pincode: pincode.trim(),
         storeListings: storeListings
       });
@@ -218,67 +213,65 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
                     ₹{previewData.price?.toLocaleString('en-IN')}
                   </span>
                   <span className="badge badge-store" style={{ textTransform: 'uppercase' }}>
-                    Detected Store: {previewData.store}
+                    Detected on: {previewData.store}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Target Price & PIN code */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Target size={13} color="#fbbf24" />
-                  Target Alert Price (₹)
-                </label>
-                <input 
-                  type="number"
-                  className="input-field"
-                  placeholder="e.g. 60000"
-                  value={targetPrice}
-                  onChange={(e) => setTargetPrice(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <MapPin size={13} color="#38bdf8" />
-                  Delivery PIN Code
-                </label>
-                <input 
-                  type="text"
-                  maxLength={6}
-                  className="input-field"
-                  placeholder="560001"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  required
-                />
-              </div>
+            {/* Delivery PIN Code */}
+            <div className="input-group" style={{ marginBottom: '20px' }}>
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MapPin size={13} color="#38bdf8" />
+                Delivery Location PIN Code
+              </label>
+              <input 
+                type="text"
+                maxLength={6}
+                className="input-field"
+                placeholder="560001"
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value)}
+                required
+              />
             </div>
 
             {/* Matched Retail Stores Overview */}
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label" style={{ marginBottom: '8px', display: 'block' }}>
-                Comparing Across 7 Indian Stores:
+                Retail Store Availability & Live Prices:
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {storeListings.map((listing, i) => (
-                  <div 
-                    key={i} 
-                    className="badge-store"
-                    style={{ 
-                      padding: '6px 12px', 
-                      background: 'rgba(255,255,255,0.04)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <span>{listing.store}:</span>
-                    <strong style={{ color: '#34d399' }}>₹{listing.currentPrice?.toLocaleString('en-IN')}</strong>
-                  </div>
-                ))}
+                {storeListings.map((listing, i) => {
+                  const isAvailable = listing.inStock !== false && listing.currentPrice !== null;
+                  return (
+                    <div 
+                      key={i} 
+                      className="badge-store"
+                      style={{ 
+                        padding: '6px 12px', 
+                        background: isAvailable ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)',
+                        opacity: isAvailable ? 1 : 0.6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        borderStyle: isAvailable ? 'solid' : 'dashed'
+                      }}
+                    >
+                      {isAvailable ? (
+                        <CheckCircle2 size={12} color="#10b981" />
+                      ) : (
+                        <XCircle size={12} color="var(--text-muted)" />
+                      )}
+                      <span>{listing.store}:</span>
+                      {isAvailable ? (
+                        <strong style={{ color: '#34d399' }}>₹{listing.currentPrice?.toLocaleString('en-IN')}</strong>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Not Available</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -291,7 +284,7 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
               id="confirm-track-btn"
             >
               <Sparkles size={18} />
-              <span>{submitting ? 'Adding to Watchlist...' : 'Start Tracking Prices (Checks every 10m)'}</span>
+              <span>{submitting ? 'Adding to Watchlist...' : 'Start 24/7 Price Tracking'}</span>
             </button>
           </form>
         )}
