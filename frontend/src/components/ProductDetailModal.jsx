@@ -267,7 +267,7 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                       : isAvailable 
                         ? 'rgba(255, 255, 255, 0.03)' 
                         : 'rgba(255, 255, 255, 0.01)',
-                    border: `1px solid ${isLowest ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-subtle)'}`,
+                    border: `1px solid ${isLowest ? 'rgba(16, 185, 129, 0.4)' : isAvailable ? 'var(--border-subtle)' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: 'var(--radius-md)',
                     padding: '14px 18px',
                     display: 'flex',
@@ -288,8 +288,8 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                       </span>
                     )}
                     {!isAvailable && (
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <XCircle size={12} /> Not Available
+                      <span style={{ fontSize: '0.72rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <XCircle size={12} /> Item Not Found
                       </span>
                     )}
                   </div>
@@ -308,13 +308,13 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                         )}
                       </div>
                     ) : (
-                      <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>
-                        Not Sold on {listing.store}
+                      <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 500, fontStyle: 'italic' }}>
+                        Does not exist on {listing.store}
                       </div>
                     )}
 
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '140px' }}>
-                      {listing.deliveryInfo || (isAvailable ? 'Available for delivery' : 'Not available')}
+                      {isAvailable ? (listing.deliveryInfo || 'Available for delivery') : `Not carried by ${listing.store}`}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -332,10 +332,10 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                       ) : (
                         <button 
                           className="btn btn-secondary btn-sm"
-                          style={{ padding: '6px 12px', opacity: 0.5, cursor: 'not-allowed' }}
+                          style={{ padding: '6px 12px', opacity: 0.4, cursor: 'not-allowed' }}
                           disabled
                         >
-                          Unavailable
+                          Not Available
                         </button>
                       )}
 

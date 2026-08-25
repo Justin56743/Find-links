@@ -3,6 +3,7 @@ import { prisma } from '../prisma.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { scrapeProductUrl } from '../services/scraper/index.js';
 import { detectProductCategory } from '../services/scraper/crossStoreMatcher.js';
+import { extractPriceHistoryData } from '../services/scraper/priceHistoryExtractor.js';
 import { checkProductPrice, simulatePriceDrop } from '../services/priceTracker.js';
 
 const router = express.Router();
@@ -54,6 +55,14 @@ router.post('/', authenticate, async (req, res) => {
     const initialLowest = validPrices.length > 0 ? Math.min(...validPrices) : 1999;
     const lowestListing = availableListings.find(l => l.currentPrice === initialLowest) || listings[0];
 
+    // Extract genuine price history metadata
+    const historyData = await extractPriceHistoryData(
+      originalUrl,
+      initialLowest,
+      Math.max(...validPrices, initialLowest * 1.18),
+      lowestListing.store
+    );
+
     const product = await prisma.trackedProduct.create({
       data: {
         userId: req.user.id,
@@ -67,8 +76,8 @@ router.post('/', authenticate, async (req, res) => {
         currentLowestPrice: initialLowest,
         previousLowestPrice: initialLowest,
         lowestStore: lowestListing.store,
-        allTimeLow: initialLowest,
-        allTimeHigh: Math.max(...validPrices, initialLowest * 1.15),
+        allTimeLow: Math.min(historyData.allTimeLow, initialLowest),
+        allTimeHigh: Math.max(historyData.allTimeHigh, ...validPrices),
         storeListings: {
           create: listings.map(item => ({
             store: item.store,
@@ -77,7 +86,7 @@ router.post('/', authenticate, async (req, res) => {
             mrp: item.mrp || Math.round((item.currentPrice || initialLowest) * 1.18),
             discountPercent: item.discountPercent || 15,
             inStock: item.inStock !== false && item.currentPrice !== null,
-            deliveryInfo: item.deliveryInfo || (item.inStock !== false ? `${item.store} Delivery Available` : `Not available on ${item.store}`),
+            deliveryInfo: item.deliveryInfo || (item.inStock !== false ? `${item.store} Delivery Available` : `Item does not exist on ${item.store}`),
             matchScore: item.matchScore || 1.0
           }))
         }
@@ -87,30 +96,16 @@ router.post('/', authenticate, async (req, res) => {
       }
     });
 
-    // Seed realistic historical price checkpoints (60d, 45d, 30d, 15d, 7d, 3d, today) for in-stock stores
+    // Seed historical price points for all in-stock stores
     for (const listing of product.storeListings) {
       if (listing.inStock && listing.currentPrice > 0) {
-        const basePrice = listing.currentPrice;
-        const mrp = listing.mrp || Math.round(basePrice * 1.18);
-
-        const checkpoints = [
-          { daysAgo: 60, price: Math.round(mrp * 0.98 / 10) * 10 },
-          { daysAgo: 45, price: Math.round(mrp * 0.95 / 10) * 10 },
-          { daysAgo: 30, price: Math.round(basePrice * 1.06 / 10) * 10 },
-          { daysAgo: 15, price: Math.round(basePrice * 1.03 / 10) * 10 },
-          { daysAgo: 7,  price: Math.round(basePrice * 1.01 / 10) * 10 },
-          { daysAgo: 0,  price: basePrice }
-        ];
-
-        for (const cp of checkpoints) {
-          const d = new Date();
-          d.setDate(d.getDate() - cp.daysAgo);
+        for (const point of historyData.historyPoints) {
           await prisma.priceHistory.create({
             data: {
               productId: product.id,
               store: listing.store,
-              price: cp.price,
-              recordedAt: d
+              price: Math.round(point.price * (listing.currentPrice / initialLowest) / 10) * 10,
+              recordedAt: point.recordedAt
             }
           });
         }
