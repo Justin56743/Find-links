@@ -3,19 +3,23 @@ import { fetchHtml, cleanPrice, extractStructuredData } from './utils.js';
 
 export const parseAmazonUrl = (url) => {
   const asinMatch = url.match(/(?:dp|gp\/product|exec\/obidos\/ASIN|product-reviews)\/([A-Z0-9]{10})/i);
-  return asinMatch ? asinMatch[1] : null;
+  return asinMatch ? asinMatch[1].toUpperCase() : null;
 };
 
 export const scrapeAmazon = async (url) => {
-  const html = await fetchHtml(url);
+  const asin = parseAmazonUrl(url);
+  const cleanUrl = asin ? `https://www.amazon.in/dp/${asin}` : url;
+
+  const html = await fetchHtml(cleanUrl);
   if (!html) return null;
 
   const $ = cheerio.load(html);
   const jsonLd = extractStructuredData(html);
 
   let title = $('#productTitle').text().trim() ||
+              $('span#title').text().trim() ||
               $('meta[property="og:title"]').attr('content') ||
-              $('title').text().replace(/Amazon\.in\s*:\s*/i, '').trim();
+              $('title').text().replace(/Amazon\.in\s*:\s*/i, '').replace(/:\s*Amazon\.in/i, '').trim();
 
   let price = null;
   const priceSelectors = [
@@ -25,7 +29,8 @@ export const scrapeAmazon = async (url) => {
     '#corePriceDisplay_desktop_feature_div .a-price-whole',
     '#priceblock_ourprice',
     '#priceblock_dealprice',
-    '.a-price .a-offscreen'
+    '.a-price .a-offscreen',
+    'span.a-color-price'
   ];
 
   for (const selector of priceSelectors) {
@@ -56,13 +61,14 @@ export const scrapeAmazon = async (url) => {
   let imageUrl = $('#landingImage').attr('data-old-hires') ||
                  $('#landingImage').attr('src') ||
                  $('meta[property="og:image"]').attr('content') ||
-                 $('#imgBlkFront').attr('src');
+                 $('#imgBlkFront').attr('src') ||
+                 $('#main-image').attr('src');
 
   const inStock = !$('#availability').text().toLowerCase().includes('currently unavailable');
 
   return {
     store: 'Amazon',
-    url,
+    url: cleanUrl,
     title: title || 'Amazon Product',
     price: price,
     mrp: mrp && mrp > (price || 0) ? mrp : null,
@@ -71,3 +77,4 @@ export const scrapeAmazon = async (url) => {
     deliveryInfo: 'Free Prime / Standard Delivery'
   };
 };
+

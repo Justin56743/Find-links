@@ -6,11 +6,12 @@ import { scrapeTataCliq } from './tatacliqScraper.js';
 import { scrapeJioMart } from './jiomartScraper.js';
 import { scrapeMyntra } from './myntraScraper.js';
 import { buildCrossStoreListings, cleanProductQuery } from './crossStoreMatcher.js';
+import { extractPriceHistoryData } from './priceHistoryExtractor.js';
 
 export const identifyStoreFromUrl = (url) => {
   const lower = url.toLowerCase();
   if (lower.includes('amazon.in') || lower.includes('amzn.to') || lower.includes('amzn.in')) return 'Amazon';
-  if (lower.includes('flipkart.com') || lower.includes('fkrt.it')) return 'Flipkart';
+  if (lower.includes('flipkart.com') || lower.includes('fkrt.it') || lower.includes('dl.flipkart.com')) return 'Flipkart';
   if (lower.includes('croma.com')) return 'Croma';
   if (lower.includes('reliancedigital.in')) return 'Reliance Digital';
   if (lower.includes('tatacliq.com')) return 'Tata CLiQ';
@@ -26,7 +27,6 @@ export const extractDetailsFromUrl = (url) => {
     const path = decodeURIComponent(urlObj.pathname);
     const parts = path.split('/').filter(Boolean);
 
-    // Extract potential product title words from slug
     let titleSlug = '';
     for (const part of parts) {
       if (part.length > 5 && !part.match(/^[a-z0-9]{10,}$/i) && !['dp', 'gp', 'product', 'p', 'buy'].includes(part.toLowerCase())) {
@@ -85,32 +85,46 @@ export const scrapeProductUrl = async (url) => {
     // console.warn(`Scraper execution error for ${url}:`, err.message);
   }
 
-  // If live scraping returned good data with title and price
-  if (scraped && scraped.title && scraped.price && scraped.price > 0) {
-    const crossListings = buildCrossStoreListings(store, scraped.price, scraped.title, url);
-    return {
-      store,
-      title: scraped.title,
-      price: scraped.price,
-      mrp: scraped.mrp,
-      imageUrl: scraped.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
-      inStock: scraped.inStock !== false,
-      crossListings
-    };
+  // Also query price aggregator for authentic historical and current price data
+  let historyData = null;
+  try {
+    historyData = await extractPriceHistoryData(url, scraped?.price, scraped?.mrp, store);
+  } catch (e) {
+    // ignore
   }
 
-  // Smart fallback when website blocks with CAPTCHA or anti-scraping
-  const fallbackTitle = extractDetailsFromUrl(url);
-  const fallbackPrice = 24999;
-  const crossListings = buildCrossStoreListings(store === 'Unknown' ? 'Amazon' : store, fallbackPrice, fallbackTitle, url);
+  const finalTitle = (scraped && scraped.title && scraped.title !== 'Amazon Product' && scraped.title !== 'Flipkart Product')
+    ? scraped.title
+    : (historyData?.productName || extractDetailsFromUrl(url));
+
+  const finalPrice = (scraped && scraped.price && scraped.price > 0)
+    ? scraped.price
+    : (historyData?.latestPrice || 1999);
+
+  const finalMrp = (scraped && scraped.mrp && scraped.mrp > finalPrice)
+    ? scraped.mrp
+    : (historyData?.allTimeHigh || Math.round(finalPrice * 1.18));
+
+  const finalImageUrl = scraped?.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80';
+
+  const crossListings = buildCrossStoreListings(
+    store === 'Unknown' ? 'Amazon' : store,
+    finalPrice,
+    finalTitle,
+    scraped?.url || url
+  );
 
   return {
     store: store === 'Unknown' ? 'Amazon' : store,
-    title: fallbackTitle,
-    price: fallbackPrice,
-    mrp: Math.round(fallbackPrice * 1.18),
-    imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
-    inStock: true,
+    title: finalTitle,
+    price: finalPrice,
+    mrp: finalMrp,
+    imageUrl: finalImageUrl,
+    inStock: scraped ? scraped.inStock !== false : true,
+    allTimeLow: historyData?.allTimeLow || finalPrice,
+    allTimeHigh: historyData?.allTimeHigh || finalMrp,
+    historyData,
     crossListings
   };
 };
+

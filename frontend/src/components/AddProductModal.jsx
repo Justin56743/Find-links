@@ -208,16 +208,22 @@ export const AddProductModal = ({ onClose, onProductAdded }) => {
                   placeholder="Product Title"
                   required
                 />
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-heading)' }}>
                     ₹{previewData.price?.toLocaleString('en-IN')}
                   </span>
                   <span className="badge badge-store" style={{ textTransform: 'uppercase' }}>
                     Detected on: {previewData.store}
                   </span>
+                  {previewData.allTimeLow && (
+                    <span style={{ fontSize: '0.72rem', color: '#6ee7b7', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '2px 8px', borderRadius: '6px' }}>
+                      All-Time Low: ₹{previewData.allTimeLow.toLocaleString('en-IN')}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
+
 
             {/* Delivery PIN Code */}
             <div className="input-group" style={{ marginBottom: '20px' }}>

@@ -63,10 +63,13 @@ router.post('/', authenticate, async (req, res) => {
       lowestListing.store
     );
 
+    const calculatedAllTimeLow = Math.min(historyData.allTimeLow, initialLowest);
+    const calculatedAllTimeHigh = Math.max(historyData.allTimeHigh, ...validPrices);
+
     const product = await prisma.trackedProduct.create({
       data: {
         userId: req.user.id,
-        title: title.trim(),
+        title: (title || historyData.productName || 'Tracked Product').trim(),
         brand: brand || null,
         category: detectedCategory,
         imageUrl: imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
@@ -76,8 +79,8 @@ router.post('/', authenticate, async (req, res) => {
         currentLowestPrice: initialLowest,
         previousLowestPrice: initialLowest,
         lowestStore: lowestListing.store,
-        allTimeLow: Math.min(historyData.allTimeLow, initialLowest),
-        allTimeHigh: Math.max(historyData.allTimeHigh, ...validPrices),
+        allTimeLow: calculatedAllTimeLow,
+        allTimeHigh: calculatedAllTimeHigh,
         storeListings: {
           create: listings.map(item => ({
             store: item.store,
@@ -86,7 +89,7 @@ router.post('/', authenticate, async (req, res) => {
             mrp: item.mrp || Math.round((item.currentPrice || initialLowest) * 1.18),
             discountPercent: item.discountPercent || 15,
             inStock: item.inStock !== false && item.currentPrice !== null,
-            deliveryInfo: item.deliveryInfo || (item.inStock !== false ? `${item.store} Delivery Available` : `Item does not exist on ${item.store}`),
+            deliveryInfo: item.deliveryInfo || (item.inStock !== false ? `${item.store} Delivery Available` : `Item is not sold on ${item.store}`),
             matchScore: item.matchScore || 1.0
           }))
         }
@@ -96,19 +99,24 @@ router.post('/', authenticate, async (req, res) => {
       }
     });
 
-    // Seed historical price points for all in-stock stores
-    for (const listing of product.storeListings) {
-      if (listing.inStock && listing.currentPrice > 0) {
-        for (const point of historyData.historyPoints) {
-          await prisma.priceHistory.create({
-            data: {
-              productId: product.id,
-              store: listing.store,
-              price: Math.round(point.price * (listing.currentPrice / initialLowest) / 10) * 10,
-              recordedAt: point.recordedAt
-            }
-          });
-        }
+    // Seed historical price points using createMany for high performance
+    if (historyData.historyPoints && historyData.historyPoints.length > 0) {
+      const priceHistoryEntries = [];
+      const primaryStoreName = primaryStore || lowestListing.store || 'Amazon';
+
+      for (const point of historyData.historyPoints) {
+        priceHistoryEntries.push({
+          productId: product.id,
+          store: point.store || primaryStoreName,
+          price: point.price,
+          recordedAt: point.recordedAt
+        });
+      }
+
+      if (priceHistoryEntries.length > 0) {
+        await prisma.priceHistory.createMany({
+          data: priceHistoryEntries
+        });
       }
     }
 
@@ -122,6 +130,7 @@ router.post('/', authenticate, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to track product.' });
   }
 });
+
 
 // Get user's tracked products
 router.get('/', authenticate, async (req, res) => {

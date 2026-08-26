@@ -255,6 +255,7 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
             {product.storeListings?.map((listing) => {
               const isAvailable = listing.inStock && listing.currentPrice > 0;
               const isLowest = isAvailable && listing.currentPrice === product.currentLowestPrice;
+              const isDirect = listing.isDirectLink || listing.store === product.primaryStore;
               const storeKey = listing.store.toLowerCase().replace(/\s+/g, '');
               const isEditing = editingStoreId === listing.id;
 
@@ -275,7 +276,7 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                     justifyContent: 'space-between',
                     gap: '16px',
                     flexWrap: 'wrap',
-                    opacity: isAvailable ? 1 : 0.65
+                    opacity: isAvailable ? 1 : 0.6
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '180px' }}>
@@ -287,9 +288,14 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                         Lowest Price
                       </span>
                     )}
+                    {isDirect && (
+                      <span style={{ fontSize: '0.68rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                        Direct Listing
+                      </span>
+                    )}
                     {!isAvailable && (
                       <span style={{ fontSize: '0.72rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <XCircle size={12} /> Item Not Found
+                        <XCircle size={12} /> Not Sold by {listing.store}
                       </span>
                     )}
                   </div>
@@ -309,12 +315,12 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                       </div>
                     ) : (
                       <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 500, fontStyle: 'italic' }}>
-                        Does not exist on {listing.store}
+                        Not carried by {listing.store}
                       </div>
                     )}
 
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '140px' }}>
-                      {isAvailable ? (listing.deliveryInfo || 'Available for delivery') : `Not carried by ${listing.store}`}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: '150px' }}>
+                      {isAvailable ? (listing.deliveryInfo || 'Available for delivery') : `Not available on ${listing.store}`}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -326,7 +332,7 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
                           className={`btn btn-sm ${isLowest ? 'btn-primary' : 'btn-secondary'}`}
                           style={{ padding: '6px 12px' }}
                         >
-                          <span>Buy on {listing.store}</span>
+                          <span>{isDirect ? `Buy on ${listing.store}` : `Search ${listing.store}`}</span>
                           <ExternalLink size={13} />
                         </a>
                       ) : (
@@ -393,9 +399,11 @@ export const ProductDetailModal = ({ product: initialProduct, onClose, onProduct
             <PriceHistoryChart 
               priceHistory={product.priceHistory || []} 
               allTimeLow={product.allTimeLow} 
+              allTimeHigh={product.allTimeHigh}
             />
           </div>
         </div>
+
 
         {/* Footer Actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: '12px' }}>
